@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Bookmark Text</title>
+    <link rel="stylesheet" href="popup.css">
+  </head>
+  <body>
+    <header>
+      <h1>Bookmark citations</h1>
+      <p id="count" class="subheading">Scanning this page…</p>
+      <div class="actions">
+        <button id="copyAll" class="button button-secondary" type="button" disabled>
+          Copy all
+        </button>
+        <button id="copySelected" class="button button-secondary" type="button" disabled>
+          Copy selected
+        </button>
+        <button id="export" class="button button-primary" type="button" disabled>
+          Export .txt
+        </button>
+      </div>
+      <div class="selection-bar">
+        <label class="check-label">
+          <input id="selectAll" type="checkbox" checked disabled>
+          <span>Select all</span>
+        </label>
+        <span id="selectionCount" class="selection-count"></span>
+      </div>
+    </header>
+    <main>
+      <ul id="entries" aria-live="polite" aria-busy="true"></ul>
+    </main>
+    <div id="toast" role="status" aria-live="polite"></div>
+    <script src="popup.js"></script>
+  </body>
+</html>
