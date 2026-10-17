@@ -126,6 +126,26 @@ main {
   overscroll-behavior: contain;
 }
 
+.attribution {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 12px;
+  border-top: 1px solid var(--line);
+  color: var(--muted);
+  font-size: 10px;
+}
+
+.attribution a {
+  color: #4338ca;
+  text-decoration: none;
+}
+
+.attribution a:hover {
+  text-decoration: underline;
+}
+
 #entries {
   margin: 0;
   padding: 0;

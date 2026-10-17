@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "Bookmark Text",
+  "name": "Pakistan Law Case Tools",
   "version": "1.0.0",
-  "description": "Copy and export bookmark citations, or open case text in a print-ready view.",
+  "description": "Copy and export case citations, or open case text in a print-ready view.",
   "permissions": ["activeTab", "scripting", "clipboardWrite", "storage"],
   "icons": {
     "16": "icons/icon-16.png",
