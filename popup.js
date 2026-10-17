@@ -7,17 +7,21 @@ const elements = {
   count: $("#count"),
   entries: $("#entries"),
   export: $("#export"),
+  openCasePrintView: $("#openCasePrintView"),
   selectAll: $("#selectAll"),
   selectionCount: $("#selectionCount"),
   toast: $("#toast"),
 };
 
 let citations = [];
+let caseDocument = null;
 let exportFileName = "citations";
 let hasCustomFileName = false;
 let toastTimer;
 
 function getBookmarkEntries() {
+  const caseElement = document.querySelector("#searchtext");
+  const caseText = caseElement?.innerText ?? caseElement?.textContent ?? "";
   const citations = [...document.querySelectorAll(".bookmark-text")]
     .map((bookmark) => {
       const cell = bookmark.closest("td");
@@ -40,6 +44,13 @@ function getBookmarkEntries() {
     .filter((citation) => citation !== null);
   return {
     citations,
+    caseDocument:
+      caseElement && caseText.trim()
+        ? {
+            html: caseElement.outerHTML,
+            title: caseElement.querySelector("title")?.textContent?.trim() || "Case",
+          }
+        : null,
     fileName: document.getElementById("bookSearch")?.value ?? "",
   };
 }
@@ -181,6 +192,30 @@ function exportSelected() {
   }
 }
 
+async function openCasePrintView() {
+  if (!caseDocument) return;
+
+  const storageKey = `case-print-${crypto.randomUUID()}`;
+  try {
+    await chrome.storage.session.set({ [storageKey]: caseDocument });
+    try {
+      await chrome.tabs.create({
+        url: `${chrome.runtime.getURL("print.html")}#${encodeURIComponent(storageKey)}`,
+      });
+    } catch (error) {
+      try {
+        await chrome.storage.session.remove(storageKey);
+      } catch (cleanupError) {
+        console.error("Bookmark Text could not clear temporary case data:", cleanupError);
+      }
+      throw error;
+    }
+  } catch (error) {
+    console.error("Bookmark Text could not open the case print view:", error);
+    showToast("Couldn't open the case print view. Try again.", true);
+  }
+}
+
 async function scanPage() {
   elements.count.textContent = "Scanning this page…";
   elements.entries.setAttribute("aria-busy", "true");
@@ -206,6 +241,9 @@ async function scanPage() {
         selected: true,
       })),
     );
+    caseDocument =
+      pageData.find(({ caseDocument: frameCase }) => frameCase?.html)?.caseDocument ?? null;
+    elements.openCasePrintView.disabled = !caseDocument;
     const searchValue = pageData.find(({ fileName }) => fileName.trim())?.fileName;
     hasCustomFileName = Boolean(searchValue);
     exportFileName = hasCustomFileName ? safeFileName(searchValue) : "citations";
@@ -213,6 +251,8 @@ async function scanPage() {
   } catch (error) {
     console.error("Bookmark Text could not scan this page:", error);
     citations = [];
+    caseDocument = null;
+    elements.openCasePrintView.disabled = true;
     elements.count.textContent = "Page unavailable";
     elements.entries.replaceChildren();
     const empty = document.createElement("p");
@@ -249,5 +289,6 @@ elements.copySelected.addEventListener("click", () => {
   }
 });
 elements.export.addEventListener("click", exportSelected);
+elements.openCasePrintView.addEventListener("click", openCasePrintView);
 
 scanPage();

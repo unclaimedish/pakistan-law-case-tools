@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Case print view</title>
+    <link rel="stylesheet" href="print.css">
+  </head>
+  <body>
+    <header id="printToolbar">
+      <div>
+        <h1 id="printTitle">Case print view</h1>
+        <p id="printStatus" role="status" aria-live="polite">
+          Use Ctrl+P or the button to print or save as PDF.
+        </p>
+      </div>
+      <button id="printButton" type="button" disabled>Print / Save as PDF</button>
+    </header>
+    <main class="paper">
+      <article id="caseContent"></article>
+    </main>
+    <script src="print.js"></script>
+  </body>
+</html>

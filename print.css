@@ -1,0 +1,105 @@
+:root {
+  color-scheme: light;
+  font-family: "Times New Roman", Times, serif;
+  color: #111;
+  background: #eceef2;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+}
+
+#printToolbar {
+  position: sticky;
+  z-index: 1;
+  top: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 12px 20px;
+  border-bottom: 1px solid #d0d5dd;
+  background: #fff;
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+    "Segoe UI", sans-serif;
+}
+
+#printTitle {
+  margin: 0;
+  font-size: 15px;
+}
+
+#printStatus {
+  margin: 3px 0 0;
+  color: #475467;
+  font-size: 12px;
+}
+
+#printButton {
+  flex: 0 0 auto;
+  min-height: 36px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: 6px;
+  background: #4f46e5;
+  color: #fff;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+#printButton:disabled {
+  opacity: 0.55;
+  cursor: wait;
+}
+
+.paper {
+  width: 8.5in;
+  min-height: 11in;
+  margin: 24px auto;
+  padding: 1in 1.25in;
+  background: #fff;
+  box-shadow: 0 2px 12px rgb(16 24 40 / 14%);
+}
+
+#caseContent {
+  font-family: "Times New Roman", Times, serif;
+  font-size: 12pt;
+}
+
+@page {
+  size: letter;
+  margin: 1in 1.25in;
+}
+
+@media print {
+  :root {
+    background: #fff;
+  }
+
+  #printToolbar {
+    display: none;
+  }
+
+  .paper {
+    width: auto;
+    min-height: 0;
+    margin: 0;
+    padding: 0;
+    box-shadow: none;
+  }
+}
+
+@media screen and (max-width: 8.5in) {
+  .paper {
+    width: 100%;
+    min-height: calc(100vh - 85px);
+    margin: 0;
+    padding: 1in max(24px, 8vw);
+  }
+}
