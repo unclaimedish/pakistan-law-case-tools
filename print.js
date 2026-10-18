@@ -27,32 +27,61 @@ function sanitizeCaseElement(element) {
 function renderCaseDocument(caseDocument) {
   if (
     !caseDocument ||
-    typeof caseDocument.html !== "string" ||
     typeof caseDocument.title !== "string"
   ) {
     throw new Error("The case content is missing or invalid");
   }
 
-  const parsedDocument = new DOMParser().parseFromString(caseDocument.html, "text/html");
-  const caseElement = parsedDocument.querySelector("#searchtext");
-  if (!caseElement) {
-    throw new Error("The case content could not be found in the print data");
+  const caseDocuments = Array.isArray(caseDocument.cases)
+    ? caseDocument.cases
+    : [caseDocument];
+  if (!caseDocuments.length) {
+    throw new Error("No case content was provided");
   }
 
-  parsedDocument.querySelectorAll("style").forEach((style) => {
-    document.head.appendChild(document.importNode(style, true));
+  const renderedCases = caseDocuments.map((documentData, index) => {
+    if (
+      !documentData ||
+      typeof documentData.html !== "string" ||
+      typeof documentData.title !== "string"
+    ) {
+      throw new Error(`Case ${index + 1} is missing or invalid`);
+    }
+
+    const parsedDocument = new DOMParser().parseFromString(documentData.html, "text/html");
+    const caseElement = parsedDocument.querySelector("#searchtext");
+    if (!caseElement) {
+      throw new Error(`Case ${index + 1} could not be found in the print data`);
+    }
+
+    parsedDocument.querySelectorAll("style").forEach((style) => {
+      document.head.appendChild(document.importNode(style, true));
+    });
+    parsedDocument.querySelectorAll("style, link, meta, title, base").forEach((node) => {
+      node.remove();
+    });
+    sanitizeCaseElement(caseElement);
+    const importedCase = document.importNode(caseElement, true);
+    if (!Array.isArray(caseDocument.cases)) return importedCase;
+
+    importedCase.id = `caseContent-${index + 1}`;
+    const section = document.createElement("section");
+    section.className = "case-section";
+    const heading = document.createElement("h2");
+    heading.className = "case-heading";
+    heading.textContent = documentData.title.trim() || `Case ${index + 1}`;
+    section.append(heading, importedCase);
+    return section;
   });
-  parsedDocument.querySelectorAll("style, link, meta, title, base").forEach((node) => {
-    node.remove();
-  });
-  sanitizeCaseElement(caseElement);
-  contentElement.replaceChildren(document.importNode(caseElement, true));
+  contentElement.replaceChildren(...renderedCases);
 
   const title = caseDocument.title.trim() || "Case";
   document.title = title;
   titleElement.textContent = title;
   printButton.disabled = false;
-  statusElement.textContent = "Use Ctrl+P or the button to print or save as PDF.";
+  statusElement.textContent = Array.isArray(caseDocument.cases)
+    ? `${caseDocuments.length} cases ready. Print or save as one PDF.`
+    : "Use Ctrl+P or the button to print or save as PDF.";
 }
 
 async function loadCaseDocument() {

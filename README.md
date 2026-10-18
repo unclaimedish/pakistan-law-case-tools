@@ -8,6 +8,7 @@ A lightweight Chrome extension for collecting case citations from a page and ope
 - Copy all citations or selected citations.
 - Export selected citations to a text file.
 - Open the case text in a separate print-ready tab and save it as PDF.
+- Open the first 50 cases loaded in the current search results together in one print-ready view and save them as a single PDF.
 
 ## Install for development
 
@@ -22,7 +23,7 @@ The extension updates when reloaded from the Extensions page after local source 
 
 - `activeTab` and `scripting` are used to read citation and case content from the active tab after the extension is opened.
 - `clipboardWrite` is used when you choose a copy action.
-- `storage` temporarily transfers the selected case markup to the print-view tab. That temporary entry is removed after the print view loads.
+- `storage` temporarily transfers case markup to the print-view tab. That temporary entry is removed after the print view loads.
 
 The extension does not send page content to a server or include a remote account or licensing service.
 

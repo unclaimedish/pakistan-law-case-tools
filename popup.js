@@ -7,7 +7,9 @@ const elements = {
   count: $("#count"),
   entries: $("#entries"),
   export: $("#export"),
+  openBulkCasePrintView: $("#openBulkCasePrintView"),
   openCasePrintView: $("#openCasePrintView"),
+  bulkPrintStatus: $("#bulkPrintStatus"),
   selectAll: $("#selectAll"),
   selectionCount: $("#selectionCount"),
   toast: $("#toast"),
@@ -15,6 +17,9 @@ const elements = {
 
 let citations = [];
 let caseDocument = null;
+let activeTabId = null;
+let caseFrameId = null;
+let loadedCaseCount = 0;
 let exportFileName = "citations";
 let hasCustomFileName = false;
 let toastTimer;
@@ -44,6 +49,7 @@ function getBookmarkEntries() {
     .filter((citation) => citation !== null);
   return {
     citations,
+    caseCount: document.querySelectorAll(".caseDescription").length,
     caseDocument:
       caseElement && caseText.trim()
         ? {
@@ -53,6 +59,94 @@ function getBookmarkEntries() {
         : null,
     fileName: document.getElementById("bookSearch")?.value ?? "",
   };
+}
+
+async function collectCaseDocuments(limit) {
+  const caseButtons = [...document.querySelectorAll(".caseDescription")].slice(0, limit);
+  const contentElement = document.querySelector("#searchtext");
+  const modalTitle = document.querySelector("#titleModalNewAppointment");
+  const modal = document.querySelector("#ExceptionResponseScreen1");
+  const bookmarkMessage = document.querySelector("#modalbookmarmessage");
+  const searchInput = document.querySelector("#query");
+  if (!caseButtons.length) {
+    throw new Error("No loaded case descriptions were found");
+  }
+  if (!contentElement) {
+    throw new Error("The case description panel is not available on this page");
+  }
+
+  const previousContent = contentElement.innerHTML;
+  const previousTitle = modalTitle?.textContent ?? "";
+  const previousModalCaseName = bookmarkMessage?.getAttribute("modalcasename");
+  const previousSearchQuery = searchInput?.value;
+  const wasModalOpen = modal?.classList.contains("in") ?? false;
+  const documents = [];
+
+  try {
+    for (const [index, button] of caseButtons.entries()) {
+      contentElement.replaceChildren();
+      button.click();
+
+      let previousHtml = "";
+      let stableSince = Date.now();
+      let caseHtml = "";
+      const deadline = Date.now() + 20000;
+      while (Date.now() < deadline) {
+        await new Promise((resolve) => setTimeout(resolve, 100));
+        const html = contentElement.innerHTML.trim();
+        const text = (contentElement.innerText ?? contentElement.textContent ?? "").trim();
+        if (html !== previousHtml) {
+          previousHtml = html;
+          stableSince = Date.now();
+        } else if (html && text.length > 80 && Date.now() - stableSince >= 300) {
+          caseHtml = html;
+          break;
+        }
+      }
+      if (!caseHtml) {
+        const caseName = button.getAttribute("casename") || `case ${index + 1}`;
+        throw new Error(`Timed out while loading ${caseName}`);
+      }
+
+      const table = button.closest(".caseLawTable");
+      const citationCell = table?.querySelector("tr:first-child td");
+      const citation = citationCell?.cloneNode(true);
+      citation?.querySelectorAll(".bookmark-text, button, input").forEach((element) => {
+        element.remove();
+      });
+      const citationText = (citation?.innerText ?? citation?.textContent ?? "")
+        .replace(/\s+/g, " ")
+        .trim();
+      const caseName = (table?.querySelector("tr:nth-child(2) td")?.innerText ?? "")
+        .replace(/\s+/g, " ")
+        .trim();
+      documents.push({
+        html: contentElement.outerHTML,
+        title:
+          [citationText, caseName].filter(Boolean).join(" — ") ||
+          button.getAttribute("casename") ||
+          `Case ${index + 1}`,
+      });
+    }
+  } finally {
+    if (!wasModalOpen) {
+      document.querySelector("#TopCloseButtonCreate")?.click();
+    }
+    contentElement.innerHTML = previousContent;
+    if (modalTitle) modalTitle.textContent = previousTitle;
+    if (bookmarkMessage) {
+      if (previousModalCaseName === null || previousModalCaseName === undefined) {
+        bookmarkMessage.removeAttribute("modalcasename");
+      } else {
+        bookmarkMessage.setAttribute("modalcasename", previousModalCaseName);
+      }
+    }
+    if (searchInput && previousSearchQuery !== undefined) {
+      searchInput.value = previousSearchQuery;
+    }
+  }
+
+  return documents;
 }
 
 function safeFileName(value) {
@@ -195,24 +289,66 @@ function exportSelected() {
 async function openCasePrintView() {
   if (!caseDocument) return;
 
-  const storageKey = `case-print-${crypto.randomUUID()}`;
   try {
-    await chrome.storage.session.set({ [storageKey]: caseDocument });
-    try {
-      await chrome.tabs.create({
-        url: `${chrome.runtime.getURL("print.html")}#${encodeURIComponent(storageKey)}`,
-      });
-    } catch (error) {
-      try {
-        await chrome.storage.session.remove(storageKey);
-      } catch (cleanupError) {
-        console.error("Bookmark Text could not clear temporary case data:", cleanupError);
-      }
-      throw error;
-    }
+    await openPrintView(caseDocument, "case-print");
   } catch (error) {
     console.error("Bookmark Text could not open the case print view:", error);
     showToast("Couldn't open the case print view. Try again.", true);
+  }
+}
+
+async function openPrintView(printData, keyPrefix) {
+  const storageKey = `${keyPrefix}-${crypto.randomUUID()}`;
+  await chrome.storage.session.set({ [storageKey]: printData });
+  try {
+    await chrome.tabs.create({
+      url: `${chrome.runtime.getURL("print.html")}#${encodeURIComponent(storageKey)}`,
+    });
+  } catch (error) {
+    try {
+      await chrome.storage.session.remove(storageKey);
+    } catch (cleanupError) {
+      console.error("Bookmark Text could not clear temporary case data:", cleanupError);
+    }
+    throw error;
+  }
+}
+
+async function openBulkCasePrintView() {
+  if (typeof activeTabId !== "number" || typeof caseFrameId !== "number") return;
+
+  const caseLimit = Math.min(50, loadedCaseCount);
+  elements.openBulkCasePrintView.disabled = true;
+  elements.bulkPrintStatus.textContent = `Loading up to ${caseLimit} case descriptions…`;
+  try {
+    const results = await chrome.scripting.executeScript({
+      target: { tabId: activeTabId, frameIds: [caseFrameId] },
+      func: collectCaseDocuments,
+      args: [caseLimit],
+    });
+    const documents = results[0]?.result;
+    if (!Array.isArray(documents) || documents.length !== caseLimit) {
+      throw new Error("The page did not return all requested case descriptions");
+    }
+
+    await openPrintView(
+      {
+        title: `${documents.length} Cases`,
+        cases: documents,
+      },
+      "bulk-case-print",
+    );
+    elements.bulkPrintStatus.textContent =
+      `Ready: ${documents.length} cases. Use Print / Save as PDF to create one PDF.`;
+  } catch (error) {
+    console.error("Bookmark Text could not prepare the bulk case print view:", error);
+    elements.bulkPrintStatus.textContent =
+      "Couldn't load all case descriptions. Check the page and try again.";
+    showToast("Couldn't load all case descriptions. Try again.", true);
+  } finally {
+    elements.openBulkCasePrintView.disabled = loadedCaseCount === 0;
+    elements.openBulkCasePrintView.textContent =
+      `Open up to ${Math.min(50, loadedCaseCount)} cases in print view`;
   }
 }
 
@@ -234,6 +370,10 @@ async function scanPage() {
       func: getBookmarkEntries,
     });
     const pageData = results.map((frame) => frame.result).filter(Boolean);
+    const caseFrame = results.find((frame) => frame.result?.caseCount > 0);
+    activeTabId = tab.id;
+    caseFrameId = caseFrame?.frameId ?? null;
+    loadedCaseCount = caseFrame?.result?.caseCount ?? 0;
     citations = pageData.flatMap(({ citations: frameCitations }) =>
       frameCitations.map(({ text, caseName }) => ({
         text,
@@ -244,6 +384,9 @@ async function scanPage() {
     caseDocument =
       pageData.find(({ caseDocument: frameCase }) => frameCase?.html)?.caseDocument ?? null;
     elements.openCasePrintView.disabled = !caseDocument;
+    elements.openBulkCasePrintView.disabled = loadedCaseCount === 0;
+    elements.openBulkCasePrintView.textContent =
+      `Open up to ${Math.min(50, loadedCaseCount)} cases in print view`;
     const searchValue = pageData.find(({ fileName }) => fileName.trim())?.fileName;
     hasCustomFileName = Boolean(searchValue);
     exportFileName = hasCustomFileName ? safeFileName(searchValue) : "citations";
@@ -252,7 +395,11 @@ async function scanPage() {
     console.error("Bookmark Text could not scan this page:", error);
     citations = [];
     caseDocument = null;
+    activeTabId = null;
+    caseFrameId = null;
+    loadedCaseCount = 0;
     elements.openCasePrintView.disabled = true;
+    elements.openBulkCasePrintView.disabled = true;
     elements.count.textContent = "Page unavailable";
     elements.entries.replaceChildren();
     const empty = document.createElement("p");
@@ -290,5 +437,6 @@ elements.copySelected.addEventListener("click", () => {
 });
 elements.export.addEventListener("click", exportSelected);
 elements.openCasePrintView.addEventListener("click", openCasePrintView);
+elements.openBulkCasePrintView.addEventListener("click", openBulkCasePrintView);
 
 scanPage();

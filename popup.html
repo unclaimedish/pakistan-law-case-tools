@@ -29,6 +29,17 @@
       >
         Open case print view
       </button>
+      <button
+        id="openBulkCasePrintView"
+        class="button button-secondary case-print-button"
+        type="button"
+        disabled
+      >
+        Open up to 50 cases in print view
+      </button>
+      <p id="bulkPrintStatus" class="bulk-print-status" role="status" aria-live="polite">
+        Uses the first 50 cases loaded in the current search results.
+      </p>
       <div class="selection-bar">
         <label class="check-label">
           <input id="selectAll" type="checkbox" checked disabled>

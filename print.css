@@ -72,6 +72,18 @@ body {
   font-size: 12pt;
 }
 
+.case-section + .case-section {
+  break-before: page;
+  page-break-before: always;
+}
+
+.case-heading {
+  margin: 0 0 16px;
+  font-size: 14pt;
+  break-after: avoid-page;
+  page-break-after: avoid;
+}
+
 @page {
   size: letter;
   margin: 1in 1.25in;
